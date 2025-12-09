@@ -6,18 +6,139 @@ class Rules
 {
     public static function generateBoard($gameId)
     {
-        // Generate standard hexagonal board (e.g. 3-4-5-4-3 layout or simple 3 rings)
-        // For Catan, usually 19 tiles.
-        // Resources: 4 Wood, 4 Sheep, 4 Wheat, 3 Brick, 3 Ore, 1 Desert
-        // Numbers: 2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12
+        $db = \Infra\Db::pdo();
 
-        // Return array of tiles config
-        // This function should INSERT into DB
+        // Standard Catan Resources (19 total)
+        $resources = array_merge(
+            array_fill(0, 4, 'wood'),
+            array_fill(0, 4, 'sheep'),
+            array_fill(0, 4, 'wheat'),
+            array_fill(0, 3, 'brick'),
+            array_fill(0, 3, 'ore'),
+            ['desert']
+        );
+        shuffle($resources);
+
+        // Standard Catan Numbers (18 total, skip desert)
+        // 2, 12: 1x
+        // 3..11: 2x
+        $numbers = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
+        shuffle($numbers);
+
+        // Coordinates for default hex shape (spiral from center)
+        // q, r
+        $coords = [
+            [0, 0], // center
+            [1, 0],
+            [1, -1],
+            [0, -1],
+            [-1, 0],
+            [-1, 1],
+            [0, 1], // inner ring
+            [2, 0],
+            [2, -1],
+            [2, -2],
+            [1, -2],
+            [0, -2],
+            [-1, -1],
+            [-2, 0],
+            [-2, 1],
+            [-2, 2],
+            [-1, 2],
+            [0, 2],
+            [1, 1] // outer ring
+        ];
+
+        $stmt = $db->prepare("INSERT INTO tiles (game_id, q, r, resource_type, number_token) VALUES (?, ?, ?, ?, ?)");
+
+        $numIndex = 0;
+        foreach ($coords as $index => $coord) {
+            if (!isset($resources[$index])) break; // Safety
+
+            $res = $resources[$index];
+            $q = $coord[0];
+            $r = $coord[1];
+
+            $token = 0;
+            if ($res !== 'desert') {
+                $token = $numbers[$numIndex] ?? 7;
+                $numIndex++;
+            }
+
+            $stmt->execute([$gameId, $q, $r, $res, $token]);
+        }
     }
 
     public static function rollDice()
     {
         return rand(1, 6) + rand(1, 6);
+    }
+
+    public static function canBuild(GameState $state, $playerIndex, $type, $locationId)
+    {
+        // 1. Check if location is already taken
+        foreach ($state->constructions as $c) {
+            if ($c['location_id'] === $locationId) {
+                return ['ok' => false, 'error' => 'Location already occupied'];
+            }
+        }
+
+        // 2. Check Resources
+        $player = $state->players[$playerIndex];
+        $cost = self::getCost($type);
+
+        foreach ($cost as $res => $amount) {
+            $current = $player["resource_$res"] ?? 0;
+            if ($current < $amount) {
+                return ['ok' => false, 'error' => "Not enough $res. Need $amount, have $current"];
+            }
+        }
+
+        // 3. Adjacency Validation (Phase 2 Simplified: Skipping strictly for now or just check road connection eventually)
+        // For "Phase 2 Initial", we trust the client UI mostly, but in real game we must check graph.
+
+        return ['ok' => true];
+    }
+
+    public static function build(GameState $state, $playerIndex, $type, $locationId)
+    {
+        $check = self::canBuild($state, $playerIndex, $type, $locationId);
+        if (!$check['ok']) {
+            throw new \Exception($check['error']);
+        }
+
+        $player = &$state->players[$playerIndex];
+        $cost = self::getCost($type);
+
+        // Deduct Resources
+        foreach ($cost as $res => $amount) {
+            $player["resource_$res"] -= $amount;
+        }
+        // Save player resource state (assuming GameState handles array reference update or we explicitly save)
+        $state->savePlayer($playerIndex);
+
+        // Add Construction
+        $state->addConstruction($type, $locationId, $player['id']);
+
+        // Update Score (Settlement +1, City +2)
+        if ($type === 'settlement') {
+            $player['score'] += 1;
+            $state->savePlayer($playerIndex);
+        }
+    }
+
+    private static function getCost($type)
+    {
+        switch ($type) {
+            case 'road':
+                return ['wood' => 1, 'brick' => 1];
+            case 'settlement':
+                return ['wood' => 1, 'brick' => 1, 'wheat' => 1, 'sheep' => 1];
+            case 'city':
+                return ['wheat' => 2, 'ore' => 3];
+            default:
+                return [];
+        }
     }
 
     public static function resolveProduction(GameState $state, $diceRoll, $weatherBuffs)

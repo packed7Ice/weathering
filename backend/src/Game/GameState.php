@@ -85,13 +85,40 @@ class GameState
         ]);
     }
 
+    public function addConstruction($type, $locationId, $playerId)
+    {
+        $db = Db::pdo();
+        $stmt = $db->prepare("INSERT INTO constructions (game_id, type, location_id, player_id) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$this->gameId, $type, $locationId, $playerId]);
+
+        // Update local state
+        $this->constructions[] = [
+            'type' => $type,
+            'location_id' => $locationId,
+            'player_id' => $playerId
+        ];
+    }
+
+    public function getPlayer($playerId)
+    {
+        foreach ($this->players as $p) {
+            if ($p['id'] == $playerId) return $p;
+        }
+        return null;
+    }
+
+    public function getPlayerIndex($playerId)
+    {
+        foreach ($this->players as $index => $p) {
+            if ($p['id'] == $playerId) return $index;
+        }
+        return -1;
+    }
+
     public function save()
     {
         $db = Db::pdo();
         $stmt = $db->prepare("UPDATE games SET turn_count = ?, active_player_index = ?, current_season = ? WHERE id = ?");
         $stmt->execute([$this->turnCount, $this->activePlayerIndex, $this->season, $this->gameId]);
-
-        // Players/Tiles/Constructions normally updated individually, but here we assume bulk updates or specific methods handle them.
-        // For Phase 1, we might just save everything if needed, but transactional updates are better.
     }
 }

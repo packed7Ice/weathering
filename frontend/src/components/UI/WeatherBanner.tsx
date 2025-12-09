@@ -17,7 +17,7 @@ export const WeatherBanner: React.FC<WeatherBannerProps> = ({ weather }) => {
         Clear: 'bg-gradient-to-r from-blue-400 to-yellow-300',
         Rain: 'bg-gradient-to-r from-gray-700 to-blue-800',
         Snow: 'bg-gradient-to-r from-blue-100 to-white text-gray-800',
-        Clouds: 'bg-gradient-to-r from-gray-400 to-gray-200',
+        Clouds: 'bg-gray-400',
     };
 
     const bgClass = bgColors[condition] || 'bg-gradient-to-r from-blue-500 to-indigo-600';

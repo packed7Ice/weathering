@@ -10,9 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $game = GameState::create();
 
     // 2. Generate Board
-    // For Phase 1, we just initialize standard resources.
-    // In a real impl, we'd save tiles to DB here.
-    // Rules::generateBoard($game->gameId);
+    // Initialize standard resources and layout
+    Rules::generateBoard($game->gameId);
 
     // 3. Return ID
     header('Content-Type: application/json');

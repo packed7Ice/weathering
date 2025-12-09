@@ -16,6 +16,8 @@ function App() {
       return params.get('gameId');
   });
 
+  const [buildMode, setBuildMode] = useState<'road' | 'settlement' | null>(null);
+
   const { gameState, weather, loading, resolveTurn, resolveAction } = useGameState(gameId);
   const api = useApiClient();
 
@@ -25,6 +27,19 @@ function App() {
            console.log(res.message); // Could be a toast
            // You could also show dice animation here based on res.dice
        }
+  };
+
+  const handleBuild = async (type: 'road' | 'settlement', locationId: string) => {
+      if (!buildMode) return;
+      const res = await resolveAction('build', { type, locationId });
+      const response = res as { error?: string } | null;
+      if (response && !response.error) {
+          setBuildMode(null); // Exit build mode on success
+          console.log("Built!", res);
+      } else {
+          console.error("Build failed", res);
+          alert("Build failed: " + (res as { error?: string })?.error);
+      }
   };
 
   // Previously we had a useEffect here to set gameId from URL, now handled in useState.
@@ -73,7 +88,13 @@ function App() {
                 {/* Left: Board */}
                 <div className="lg:col-span-2">
                     {gameState ? (
-                        <Board tiles={gameState.board} weatherBuffs={weather ? weather.buffs : null} />
+                        <Board 
+                            tiles={gameState.board} 
+                            weatherBuffs={weather ? weather.buffs : null} 
+                            buildMode={buildMode}
+                            onBuild={handleBuild}
+                            constructions={gameState.constructions}
+                        />
                     ) : (
                         <div className="h-[600px] bg-gray-200 rounded-xl flex items-center justify-center animate-pulse">
                             Loading Game State...
@@ -90,6 +111,8 @@ function App() {
                     <ActionPanel 
                         onEndTurn={resolveTurn} 
                         onRollDice={handleRollDice} 
+                        onSetBuildMode={setBuildMode}
+                        currentBuildMode={buildMode}
                         loading={loading} 
                     />
                     

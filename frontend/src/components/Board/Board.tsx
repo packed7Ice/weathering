@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
-import type { Tile, WeatherBuff } from '../../types/game';
+import type { Tile, WeatherBuff, Construction } from '../../types/game';
 import { HexTile } from './HexTile';
 
 interface BoardProps {
     tiles: Tile[];
     weatherBuffs: WeatherBuff[] | null;
+    buildMode: 'road' | 'settlement' | null;
+    onBuild: (type: 'road' | 'settlement', locationId: string) => void;
+    constructions: Construction[];
 }
 
-export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs }) => {
+export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs, buildMode, onBuild, constructions }) => {
     // Determine bounds to center the board
     // For now assuming tiles are roughly centered around 0,0
     
@@ -21,8 +24,8 @@ export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs }) => {
             // Axial to Pixel
             // x = size * 3/2 * q
             // y = size * sqrt(3) * (r + q/2)
-            const x = 50 + tile.q * xStep; // offset 50 to center roughly if q=0
-            const y = 50 + (tile.r + tile.q / 2) * yStep;
+            const x = tile.q * xStep; 
+            const y = (tile.r + tile.q / 2) * yStep;
 
             return (
                 <div 
@@ -32,12 +35,15 @@ export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs }) => {
                     <HexTile 
                         tile={tile} 
                         buffs={weatherBuffs} 
+                        buildMode={buildMode}
+                        onBuild={onBuild}
+                        constructions={constructions}
                         onClick={() => console.log('Clicked tile', tile)}
                     />
                 </div>
             );
         });
-    }, [tiles, weatherBuffs, xStep, yStep]);
+    }, [tiles, weatherBuffs, buildMode, onBuild, constructions, xStep, yStep]);
 
     return (
         <div className="relative w-full h-[600px] bg-[#2a7fa8] overflow-hidden rounded-xl shadow-inner border-4 border-[#1e5b7a]">

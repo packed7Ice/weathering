@@ -39,6 +39,12 @@ class WeatherApiClient
             return null;
         }
 
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        if ($httpCode !== 200) {
+            error_log("WeatherApi HTTP Error: $httpCode. Response: $response");
+            return null;
+        }
 
         return json_decode($response, true);
     }

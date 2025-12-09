@@ -59,6 +59,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Log message
         $response['message'] = "Rolled $dice. Production distributed.";
+    } elseif ($action === 'build') {
+        $payload = $input['payload'] ?? [];
+        $type = $payload['type'] ?? null;
+        $locationId = $payload['locationId'] ?? null;
+
+        if (!$type || !$locationId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing type or locationId for build']);
+            exit;
+        }
+
+        try {
+            // Assume active player is the one building (for Phase 1 single player)
+            // In multiplayer, we should check session or token against $state->activePlayerIndex
+            Rules::build($state, $state->activePlayerIndex, $type, $locationId);
+            $response['message'] = "Built $type at $locationId";
+        } catch (Exception $e) {
+            http_response_code(400); // Bad Request (e.g. not enough resources)
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
+        }
     } elseif ($action === 'end_turn') {
         // Basic turn rotation
         $state->activePlayerIndex = ($state->activePlayerIndex + 1) % count($state->players);
