@@ -82,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Rules::build($state, $state->activePlayerIndex, $type, $locationId);
             $response['message'] = "Built $type at $locationId";
         } catch (Exception $e) {
+            error_log(date('Y-m-d H:i:s') . " Build Error: " . $e->getMessage() . " Payload: " . json_encode($payload) . " GameId: " . $gameId . "\n", 3, __DIR__ . '/../../../logs/error.log');
             http_response_code(400); // Bad Request (e.g. not enough resources)
             echo json_encode(['error' => $e->getMessage()]);
             exit;
@@ -116,14 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } elseif ($action === 'play_dev_card') {
-        $payload = $input['payload'] ?? []; // Input mapping fix: input is flat in resolve_turn loop? No.
-        // Input structure: { gameId, action, cardType, ...payload }?
-        // Wait, App.tsx: resolveAction('play_dev_card', { cardType, ...payload })
-        // So $input has 'cardType' and payload keys directly.
-
-        $type = $input['cardType'] ?? null;
+        $payload = $input['payload'] ?? [];
+        $type = $payload['cardType'] ?? null;
         try {
-            $result = Rules::playDevCard($state, $state->activePlayerIndex, $type, $input);
+            $result = Rules::playDevCard($state, $state->activePlayerIndex, $type, $payload);
             $response['message'] = $result['message'];
         } catch (Exception $e) {
             http_response_code(400);

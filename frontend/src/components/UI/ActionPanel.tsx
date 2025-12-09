@@ -15,9 +15,42 @@ interface Props {
 export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuildMode, loading, onTradeClick, onBuyDevCard, onOpenDevCards, gameState }: Props) => {
     const isRollPhase = gameState?.turnPhase === 'roll';
     const isMainPhase = gameState?.turnPhase === 'main';
+    const isSetupPhase = gameState?.turnPhase?.startsWith('setup') ?? false;
     
-    // Check if it's actually the user's turn (implicitly handled by single player flow here, but good for UI state)
-    
+    // Logic for Setup Phase Guidance
+    const activePlayerIndex = gameState?.activePlayerIndex ?? -1;
+    const activePlayerId = gameState?.players[activePlayerIndex]?.id;
+    const myConstructions = gameState?.constructions.filter(c => c.player_id === activePlayerId) || [];
+    const mySettlements = myConstructions.filter(c => c.type === 'settlement').length;
+    const myRoads = myConstructions.filter(c => c.type === 'road').length;
+
+    let canBuildSettlement = false;
+    let canBuildRoad = false;
+    let setupInstruction = "準備フェーズ";
+
+    if (isMainPhase) {
+        canBuildSettlement = true; // Still need resources, but Button enabled to enter mode
+        canBuildRoad = true;
+    } else if (isSetupPhase) {
+        if (gameState?.turnPhase === 'setup_1') {
+            if (mySettlements === 0) {
+                canBuildSettlement = true;
+                setupInstruction = "開拓地を1つ建設してください";
+            } else if (myRoads === 0) {
+                canBuildRoad = true;
+                setupInstruction = "開拓地に接続する街道を1つ建設してください";
+            }
+        } else if (gameState?.turnPhase === 'setup_2') {
+             if (mySettlements === 1) {
+                canBuildSettlement = true;
+                setupInstruction = "2つ目の開拓地を建設してください";
+            } else if (myRoads === 1) {
+                canBuildRoad = true;
+                setupInstruction = "2つ目の街道を建設してください";
+            }
+        }
+    }
+
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
@@ -26,6 +59,12 @@ export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuil
                     Phase: <span className="font-bold uppercase text-blue-600">{gameState?.turnPhase || 'Unknown'}</span>
                 </span>
             </h2>
+
+            {isSetupPhase && (
+                 <div className="mb-4 text-sm font-bold text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                     {setupInstruction}
+                 </div>
+            )}
             
             <div className="grid grid-cols-2 gap-3 mb-4">
                  <button 
@@ -42,9 +81,9 @@ export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuil
                  </button>
                  <button 
                     onClick={() => onSetBuildMode(currentBuildMode === 'road' ? null : 'road')}
-                    disabled={!isMainPhase}
+                    disabled={!canBuildRoad}
                     className={`p-3 font-bold rounded-lg transition border flex flex-col items-center justify-center ${
-                         !isMainPhase 
+                         !canBuildRoad
                           ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                           : currentBuildMode === 'road'
                             ? 'bg-orange-200 border-orange-400 text-orange-900 ring-2 ring-orange-300'
@@ -55,9 +94,9 @@ export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuil
                  </button>
                  <button 
                     onClick={() => onSetBuildMode(currentBuildMode === 'settlement' ? null : 'settlement')}
-                    disabled={!isMainPhase}
+                    disabled={!canBuildSettlement}
                     className={`p-3 font-bold rounded-lg transition border flex flex-col items-center justify-center ${
-                         !isMainPhase
+                         !canBuildSettlement
                           ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                           : currentBuildMode === 'settlement'
                             ? 'bg-green-200 border-green-400 text-green-900 ring-2 ring-green-300'
@@ -115,10 +154,10 @@ export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuil
 
             <button 
                 onClick={onEndTurn}
-                disabled={loading}
+                disabled={loading || isSetupPhase}
                 className="w-full py-4 bg-slate-800 hover:bg-slate-900 disabled:bg-gray-400 text-white font-bold rounded-xl shadow-lg transition transform hover:scale-[1.02]"
             >
-                End Turn
+                {isSetupPhase ? 'Auto End Turn' : 'End Turn'}
             </button>
         </div>
     );

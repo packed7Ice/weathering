@@ -39,7 +39,7 @@ class GameState
         shuffle($deck);
         $deckJson = json_encode($deck);
 
-        $stmt = $db->prepare("INSERT INTO games (id, turn_count, active_player_index, current_season, turn_phase, dev_deck) VALUES (?, 0, 0, 'Normal', 'roll', ?)");
+        $stmt = $db->prepare("INSERT INTO games (id, turn_count, active_player_index, current_season, turn_phase, dev_deck) VALUES (?, 0, 0, 'Normal', 'setup_1', ?)");
         $stmt->execute([$id, $deckJson]);
 
         return new self($id);
@@ -58,7 +58,7 @@ class GameState
         $instance->turnCount = $row['turn_count'];
         $instance->activePlayerIndex = $row['active_player_index'];
         $instance->season = $row['current_season'];
-        $instance->turnPhase = $row['turn_phase'] ?? 'roll';
+        $instance->turnPhase = $row['turn_phase'] ?? 'setup_1';
         $instance->devDeck = json_decode($row['dev_deck'] ?? '[]', true);
 
         // Load Players

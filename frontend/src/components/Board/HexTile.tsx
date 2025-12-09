@@ -53,24 +53,28 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
                  // Settlement Mode
                  if (buildMode === 'settlement' && !isTaken) {
                      spots.push(
-                        <circle 
+                        <g 
                             key={`v-${i}`} 
-                            cx={v.x} cy={v.y} r="10" 
-                            className="fill-white/50 hover:fill-white cursor-pointer stroke-gray-500 stroke-1"
                             onClick={(e) => { e.stopPropagation(); onBuild('settlement', id); }}
-                        />
+                            className="cursor-pointer group"
+                        >
+                            <circle cx={v.x} cy={v.y} r="20" fill="transparent" />
+                            <circle cx={v.x} cy={v.y} r="12" className="fill-white/50 group-hover:fill-white stroke-gray-500 stroke-1 transition-colors" />
+                        </g>
                      );
                  }
 
                  // City Mode (Upgrade)
                  if (buildMode === 'city' && existing && existing.type === 'settlement') {
                      spots.push(
-                        <circle 
+                        <g 
                             key={`upg-${i}`} 
-                            cx={v.x} cy={v.y} r="14" 
-                            className="fill-none stroke-purple-500 stroke-2 hover:fill-purple-500/30 cursor-pointer animate-pulse"
                             onClick={(e) => { e.stopPropagation(); onBuild('city', id); }}
-                        />
+                            className="cursor-pointer group"
+                        >
+                             <circle cx={v.x} cy={v.y} r="25" fill="transparent" />
+                             <circle cx={v.x} cy={v.y} r="16" className="fill-none stroke-purple-500 stroke-2 group-hover:fill-purple-500/30 animate-pulse transition-colors" />
+                        </g>
                      );
                  }
                  
@@ -79,7 +83,7 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
                          spots.push(
                             <rect 
                                 key={`exist-v-${i}-city`}
-                                x={v.x - 8} y={v.y - 8} width="16" height="16"
+                                x={v.x - 10} y={v.y - 10} width="20" height="20"
                                 className="fill-purple-600 stroke-white stroke-2 shadow-sm transform rotate-45 origin-center"
                             />
                          );
@@ -87,7 +91,7 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
                          spots.push(
                             <rect 
                                 key={`exist-v-${i}-settlement`}
-                                x={v.x - 5} y={v.y - 5} width="10" height="10"
+                                x={v.x - 6} y={v.y - 6} width="12" height="12"
                                 className="fill-green-600 stroke-white stroke-1"
                             />
                          );
@@ -109,12 +113,14 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
 
                  if (buildMode === 'road' && !isTaken) {
                     spots.push(
-                        <circle 
+                        <g 
                             key={`e-${i}`} 
-                            cx={mx} cy={my} r="6" 
-                            className="fill-orange-300/50 hover:fill-orange-500 cursor-pointer"
                             onClick={(e) => { e.stopPropagation(); onBuild('road', id); }}
-                        />
+                            className="cursor-pointer group"
+                        >
+                            <circle cx={mx} cy={my} r="15" fill="transparent" />
+                            <circle cx={mx} cy={my} r="8" className="fill-orange-300/50 group-hover:fill-orange-500 transition-colors" />
+                        </g>
                     );
                  }
 
@@ -123,7 +129,7 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
                         <line 
                             key={`exist-e-${i}`}
                             x1={v.x} y1={v.y} x2={nextV.x} y2={nextV.y}
-                            stroke="orange" strokeWidth="4"
+                            stroke="orange" strokeWidth="6"
                         />
                      );
                  }

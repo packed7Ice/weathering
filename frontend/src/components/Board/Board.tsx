@@ -15,17 +15,16 @@ export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs, buildMode, on
     // For now assuming tiles are roughly centered around 0,0
     
     // Hex Size
-    const hexSize = 55; // spacing
-    const xStep = hexSize * 1.55; 
-    const yStep = hexSize * 1.732 * 0.95; // adjusted for tight packing
-
+    // Hex Size (Increased for spacing)
+    const hexSize = 60; 
+    
     const renderTiles = useMemo(() => {
         return tiles.map(tile => {
-            // Axial to Pixel
-            // x = size * 3/2 * q
-            // y = size * sqrt(3) * (r + q/2)
-            const x = tile.q * xStep; 
-            const y = (tile.r + tile.q / 2) * yStep;
+            // Pointy Top Orientation Layout (to match HexTile SVG)
+            // x = size * sqrt(3) * (q + r/2)
+            // y = size * 3/2 * r
+            const x = hexSize * Math.sqrt(3) * (tile.q + tile.r / 2);
+            const y = hexSize * 1.5 * tile.r;
 
             return (
                 <div 
@@ -43,7 +42,7 @@ export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs, buildMode, on
                 </div>
             );
         });
-    }, [tiles, weatherBuffs, buildMode, onBuild, constructions, xStep, yStep]);
+    }, [tiles, weatherBuffs, buildMode, onBuild, constructions, hexSize]);
 
     return (
         <div className="relative w-full h-[600px] bg-[#2a7fa8] overflow-hidden rounded-xl shadow-inner border-4 border-[#1e5b7a]">

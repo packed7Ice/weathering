@@ -54,7 +54,7 @@ export interface GameState {
     turnCount: number;
     season: string;
     activePlayerIndex: number;
-    turnPhase: 'roll' | 'main';
+    turnPhase: 'roll' | 'main' | 'setup_1' | 'setup_2';
     players: Player[];
     board: Tile[];
     constructions: Construction[];

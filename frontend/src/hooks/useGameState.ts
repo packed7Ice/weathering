@@ -32,7 +32,7 @@ export function useGameState(gameId: string | null) {
 
     const resolveAction = useCallback(async (action: string, payload: object = {}) => {
         if (!gameId) return null; // Return null if no gameId
-        const res = await post<ApiResponse>('/game/resolve_turn.php', { gameId, action, ...payload });
+        const res = await post<ApiResponse>('/game/resolve_turn.php', { gameId, action, payload });
         if (res && res.gameState) {
             setGameState(res.gameState);
             refreshState(); // Refresh to get new weather or other state potentially

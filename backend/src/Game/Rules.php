@@ -101,7 +101,33 @@ class Rules
             if ($existing) return ['ok' => false, 'error' => 'Location already occupied'];
         }
 
-        // 2. Check Resources
+        // Setup Phase Logic
+        if (strpos($state->turnPhase, 'setup') === 0) {
+            // Count Check
+            $sCount = 0;
+            $rCount = 0;
+            foreach ($state->constructions as $c) {
+                if ($c['player_id'] == $player['id']) {
+                    if ($c['type'] == 'settlement') $sCount++;
+                    if ($c['type'] == 'road') $rCount++;
+                }
+            }
+            // setup_1: Limit 1S, 1R. setup_2: Limit 2S, 2R.
+            $limit = ($state->turnPhase === 'setup_1') ? 1 : 2;
+
+            if ($type === 'settlement') {
+                if ($sCount >= $limit) return ['ok' => false, 'error' => "Already placed settlement for this round"];
+            } elseif ($type === 'road') {
+                if ($rCount >= $limit) return ['ok' => false, 'error' => "Already placed road for this round"];
+                if ($sCount < $limit) return ['ok' => false, 'error' => "Must place settlement first"];
+            } else {
+                return ['ok' => false, 'error' => "Only settlements and roads allowed in setup"];
+            }
+
+            return ['ok' => true];
+        }
+
+        // 2. Check Resources (Main Phase)
         $cost = self::getCost($type);
 
         foreach ($cost as $res => $amount) {
@@ -117,6 +143,56 @@ class Rules
 
     public static function build(GameState $state, $playerIndex, $type, $locationId)
     {
+        // Setup Phase Logic
+        if (strpos($state->turnPhase, 'setup') === 0) {
+            $check = self::canBuild($state, $playerIndex, $type, $locationId);
+            if (!$check['ok']) throw new \Exception($check['error']);
+
+            $player = &$state->players[$playerIndex];
+            // Add construction (Free)
+            $state->addConstruction($type, $locationId, $player['id']);
+            if ($type === 'settlement') $player['score'] += 1;
+
+            // Setup 2 Resource Dist
+            if ($state->turnPhase === 'setup_2' && $type === 'settlement') {
+                // Simplified: Give resource of the tile this vertex belongs to
+                // Parse locationId q_r_v_i
+                if (preg_match('/^(-?\d+)_(-?\d+)_v_\d+$/', $locationId, $matches)) {
+                    $q = $matches[1];
+                    $r = $matches[2];
+                    // Find tile
+                    foreach ($state->board as $tile) {
+                        if ($tile['q'] == $q && $tile['r'] == $r && $tile['resource_type'] !== 'desert') {
+                            $res = $tile['resource_type'];
+                            if ($res) {
+                                $player["resource_$res"] = ($player["resource_$res"] ?? 0) + 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            $state->savePlayer($playerIndex);
+
+            // Check for turn advance
+            $sCount = 0;
+            $rCount = 0;
+            foreach ($state->constructions as $c) {
+                if ($c['player_id'] == $player['id']) {
+                    if ($c['type'] == 'settlement') $sCount++;
+                    if ($c['type'] == 'road') $rCount++;
+                }
+            }
+            $limit = ($state->turnPhase === 'setup_1') ? 1 : 2;
+
+            if ($sCount == $limit && $rCount == $limit) {
+                self::advanceSetupTurn($state);
+            } else {
+                $state->save(); // Save construction changes if turn didn't change
+            }
+            return;
+        }
+
         if ($state->turnPhase !== 'main') {
             throw new \Exception("Must roll dice first.");
         }
@@ -146,6 +222,29 @@ class Rules
 
         // Save player
         $state->savePlayer($playerIndex);
+    }
+
+    private static function advanceSetupTurn(GameState $state)
+    {
+        $numPlayers = count($state->players);
+
+        if ($state->turnPhase === 'setup_1') {
+            $state->activePlayerIndex++;
+            if ($state->activePlayerIndex >= $numPlayers) {
+                // End of Forward Pass
+                $state->activePlayerIndex = $numPlayers - 1; // Stay on last player
+                $state->turnPhase = 'setup_2';
+            }
+        } elseif ($state->turnPhase === 'setup_2') {
+            $state->activePlayerIndex--;
+            if ($state->activePlayerIndex < 0) {
+                // End of Reverse Pass
+                $state->activePlayerIndex = 0; // Start Game with Player 1
+                $state->turnPhase = 'roll';
+                $state->turnCount = 1;
+            }
+        }
+        $state->save();
     }
 
     public static function bankTrade(GameState $state, $playerIndex, $offerType, $wantType)
