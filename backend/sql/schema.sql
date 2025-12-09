@@ -4,7 +4,9 @@ CREATE TABLE IF NOT EXISTS games (
     turn_count INTEGER DEFAULT 0,
     active_player_index INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    current_season TEXT DEFAULT 'Normal' -- Normal, Rainy, Dry, etc.
+    current_season TEXT DEFAULT 'Normal', -- Normal, Rainy, Dry, etc.
+    turn_phase TEXT DEFAULT 'roll', -- roll, main
+    dev_deck TEXT -- JSON encoded deck
 );
 
 -- Players table
@@ -19,6 +21,7 @@ CREATE TABLE IF NOT EXISTS players (
     resource_sheep INTEGER DEFAULT 0,
     resource_wheat INTEGER DEFAULT 0,
     resource_ore INTEGER DEFAULT 0,
+    dev_cards TEXT, -- JSON encoded hand
     FOREIGN KEY(game_id) REFERENCES games(id)
 );
 

@@ -5,8 +5,8 @@ import { HexTile } from './HexTile';
 interface BoardProps {
     tiles: Tile[];
     weatherBuffs: WeatherBuff[] | null;
-    buildMode: 'road' | 'settlement' | null;
-    onBuild: (type: 'road' | 'settlement', locationId: string) => void;
+    buildMode: 'road' | 'settlement' | 'city' | null;
+    onBuild: (type: 'road' | 'settlement' | 'city', locationId: string) => void;
     constructions: Construction[];
 }
 

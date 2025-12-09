@@ -14,6 +14,8 @@ class GameState
     public $players = [];
     public $board = []; // Holds tiles
     public $constructions = []; // Holds buildings
+    public $turnPhase = 'roll'; // 'roll', 'main'
+    public $devDeck = []; // Array of card types
 
     public function __construct($gameId)
     {
@@ -25,8 +27,20 @@ class GameState
         $id = uniqid('g_');
         $db = Db::pdo();
 
-        $stmt = $db->prepare("INSERT INTO games (id, turn_count, active_player_index, current_season) VALUES (?, 0, 0, 'Normal')");
-        $stmt->execute([$id]);
+        // Initialize Deck (Simple distribution)
+        // 14 Knight, 5 VP, 2 Road, 2 Plenty, 2 Monopoly = 25 total
+        $deck = array_merge(
+            array_fill(0, 14, 'knight'),
+            array_fill(0, 5, 'vp_point'),
+            array_fill(0, 2, 'road_building'),
+            array_fill(0, 2, 'year_of_plenty'),
+            array_fill(0, 2, 'monopoly')
+        );
+        shuffle($deck);
+        $deckJson = json_encode($deck);
+
+        $stmt = $db->prepare("INSERT INTO games (id, turn_count, active_player_index, current_season, turn_phase, dev_deck) VALUES (?, 0, 0, 'Normal', 'roll', ?)");
+        $stmt->execute([$id, $deckJson]);
 
         return new self($id);
     }
@@ -44,6 +58,8 @@ class GameState
         $instance->turnCount = $row['turn_count'];
         $instance->activePlayerIndex = $row['active_player_index'];
         $instance->season = $row['current_season'];
+        $instance->turnPhase = $row['turn_phase'] ?? 'roll';
+        $instance->devDeck = json_decode($row['dev_deck'] ?? '[]', true);
 
         // Load Players
         $stmtP = $db->prepare("SELECT * FROM players WHERE game_id = ?");
@@ -71,7 +87,8 @@ class GameState
         $db = Db::pdo();
         $stmt = $db->prepare("UPDATE players SET 
             score = ?, 
-            resource_wood = ?, resource_brick = ?, resource_sheep = ?, resource_wheat = ?, resource_ore = ? 
+            resource_wood = ?, resource_brick = ?, resource_sheep = ?, resource_wheat = ?, resource_ore = ?,
+            dev_cards = ?
             WHERE id = ?");
 
         $stmt->execute([
@@ -81,6 +98,7 @@ class GameState
             $p['resource_sheep'],
             $p['resource_wheat'],
             $p['resource_ore'],
+            json_encode($p['dev_cards'] ?? []),
             $p['id']
         ]);
     }
@@ -97,6 +115,21 @@ class GameState
             'location_id' => $locationId,
             'player_id' => $playerId
         ];
+    }
+
+    public function upgradeConstruction($locationId, $newType)
+    {
+        $db = Db::pdo();
+        $stmt = $db->prepare("UPDATE constructions SET type = ? WHERE game_id = ? AND location_id = ?");
+        $stmt->execute([$newType, $this->gameId, $locationId]);
+
+        // Update local state
+        foreach ($this->constructions as &$c) {
+            if ($c['location_id'] === $locationId) {
+                $c['type'] = $newType;
+                break;
+            }
+        }
     }
 
     public function getPlayer($playerId)
@@ -118,7 +151,7 @@ class GameState
     public function save()
     {
         $db = Db::pdo();
-        $stmt = $db->prepare("UPDATE games SET turn_count = ?, active_player_index = ?, current_season = ? WHERE id = ?");
-        $stmt->execute([$this->turnCount, $this->activePlayerIndex, $this->season, $this->gameId]);
+        $stmt = $db->prepare("UPDATE games SET turn_count = ?, active_player_index = ?, current_season = ?, turn_phase = ?, dev_deck = ? WHERE id = ?");
+        $stmt->execute([$this->turnCount, $this->activePlayerIndex, $this->season, $this->turnPhase, json_encode($this->devDeck), $this->gameId]);
     }
 }

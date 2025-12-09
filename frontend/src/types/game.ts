@@ -1,4 +1,11 @@
 export type ResourceType = 'wood' | 'brick' | 'sheep' | 'wheat' | 'ore' | 'desert';
+export type DevCardType = 'knight' | 'vp_point' | 'road_building' | 'year_of_plenty' | 'monopoly';
+
+export interface DevCard {
+    type: DevCardType;
+    bought_turn: number;
+    played: boolean;
+}
 
 export interface Player {
     id: number;
@@ -11,6 +18,7 @@ export interface Player {
     resource_sheep: number;
     resource_wheat: number;
     resource_ore: number;
+    dev_cards?: DevCard[];
 }
 
 export interface Tile {
@@ -46,6 +54,7 @@ export interface GameState {
     turnCount: number;
     season: string;
     activePlayerIndex: number;
+    turnPhase: 'roll' | 'main';
     players: Player[];
     board: Tile[];
     constructions: Construction[];
@@ -55,6 +64,17 @@ export interface ApiResponse {
     status?: string; // Add status as it's returned by PHP
     gameState: GameState;
     weather: WeatherData | null;
-    actionResponse?: unknown; // Generic payload for action results like dice roll
+    actionResponse?: {
+        message?: string;
+        dice?: number;
+        produced?: Record<number, Record<string, number>>;
+        game_over?: boolean;
+        winner?: {
+            id: number;
+            name: string;
+            score: number;
+        };
+        card?: DevCardType;
+    }; 
     error?: string;
 }

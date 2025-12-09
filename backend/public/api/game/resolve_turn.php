@@ -35,9 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     if ($action === 'roll_dice') {
-        // 1. Roll Dice
-        $dice = Rules::rollDice();
-        $response['dice'] = $dice;
+        // 1. Roll Dice (Validation inside Rules::rollDice)
+        try {
+            $dice = Rules::rollDice($state);
+            $response['dice'] = $dice;
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
+        }
 
         // 2. Fetch Weather (needed for buffs)
         // In optimized version, we might cache this on state, but for now fetch fresh.
@@ -80,10 +86,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => $e->getMessage()]);
             exit;
         }
+    } elseif ($action === 'trade') {
+        $payload = $input['payload'] ?? [];
+        $offer = $payload['offer'] ?? null;
+        $want = $payload['want'] ?? null;
+
+        if (!$offer || !$want) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing offer or want for trade']);
+            exit;
+        }
+
+        try {
+            Rules::bankTrade($state, $state->activePlayerIndex, $offer, $want);
+            $response['message'] = "Traded 4 $offer for 1 $want";
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
+        }
+    } elseif ($action === 'buy_dev_card') {
+        try {
+            $card = Rules::buyDevCard($state, $state->activePlayerIndex);
+            $response['message'] = "Bought Development Card";
+            $response['card'] = $card; // In real game, only show to active player. Here strict single player, so ok.
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
+        }
     } elseif ($action === 'end_turn') {
         // Basic turn rotation
         $state->activePlayerIndex = ($state->activePlayerIndex + 1) % count($state->players);
         $state->turnCount++;
+        $state->turnPhase = 'roll'; // Reset phase
         $state->save();
         $response['message'] = "Turn ended. Active player is now " . $state->activePlayerIndex;
     } else {
@@ -95,6 +131,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // After action, save the game state if it was modified
     // (Actions like roll_dice and end_turn already save, but this ensures consistency)
     $state->save();
+
+    // Check for Victory
+    $winCheck = Rules::checkWinCondition($state);
+    if ($winCheck['gameOver']) {
+        $response['game_over'] = true; // Use valid JSON key
+        $response['winner'] = $winCheck['winner'];
+        $response['message'] = "Game Over! Winner: " . $winCheck['winner']['name'];
+    }
 
     echo json_encode(['status' => 'ok', 'newState' => $state, 'actionResponse' => $response]);
 }

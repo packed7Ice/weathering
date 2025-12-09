@@ -4,8 +4,8 @@ interface HexTileProps {
     tile: Tile;
     buffs: WeatherBuff[] | null;
     onClick: () => void;
-    buildMode: 'road' | 'settlement' | null;
-    onBuild: (type: 'road' | 'settlement', locationId: string) => void;
+    buildMode: 'road' | 'settlement' | 'city' | null;
+    onBuild: (type: 'road' | 'settlement' | 'city', locationId: string) => void;
     constructions: Construction[];
 }
 
@@ -43,13 +43,14 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
     const renderBuildSpots = () => {
         const spots: React.ReactNode[] = [];
 
-        // Vertices (Settlements)
-        if (buildMode === 'settlement' || !buildMode) { // Render existing always? Check constructions
+        // Vertices (Settlements & Cities)
+        if (buildMode === 'settlement' || buildMode === 'city' || !buildMode) {
              vertices.forEach((v, i) => {
                  const id = getVertexId(i);
                  const existing = constructions.find(c => c.location_id === id && (c.type === 'settlement' || c.type === 'city'));
                  const isTaken = !!existing;
 
+                 // Settlement Mode
                  if (buildMode === 'settlement' && !isTaken) {
                      spots.push(
                         <circle 
@@ -60,15 +61,37 @@ export const HexTile: React.FC<HexTileProps> = ({ tile, buffs, onClick, buildMod
                         />
                      );
                  }
-                 
-                 if (existing) {
+
+                 // City Mode (Upgrade)
+                 if (buildMode === 'city' && existing && existing.type === 'settlement') {
                      spots.push(
-                        <rect 
-                            key={`exist-v-${i}`}
-                            x={v.x - 5} y={v.y - 5} width="10" height="10"
-                            className="fill-green-600 stroke-white stroke-1"
+                        <circle 
+                            key={`upg-${i}`} 
+                            cx={v.x} cy={v.y} r="14" 
+                            className="fill-none stroke-purple-500 stroke-2 hover:fill-purple-500/30 cursor-pointer animate-pulse"
+                            onClick={(e) => { e.stopPropagation(); onBuild('city', id); }}
                         />
                      );
+                 }
+                 
+                 if (existing) {
+                     if (existing.type === 'city') {
+                         spots.push(
+                            <rect 
+                                key={`exist-v-${i}-city`}
+                                x={v.x - 8} y={v.y - 8} width="16" height="16"
+                                className="fill-purple-600 stroke-white stroke-2 shadow-sm transform rotate-45 origin-center"
+                            />
+                         );
+                     } else {
+                         spots.push(
+                            <rect 
+                                key={`exist-v-${i}-settlement`}
+                                x={v.x - 5} y={v.y - 5} width="10" height="10"
+                                className="fill-green-600 stroke-white stroke-1"
+                            />
+                         );
+                     }
                  }
              });
         }
