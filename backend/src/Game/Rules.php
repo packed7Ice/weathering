@@ -206,6 +206,87 @@ class Rules
         return $card;
     }
 
+    public static function playDevCard(GameState $state, $playerIndex, $type, $payload = [])
+    {
+        $player = &$state->players[$playerIndex];
+
+        // 1. Find the card in player's hand
+        $cardIndex = -1;
+        if (isset($player['dev_cards'])) {
+            foreach ($player['dev_cards'] as $index => $c) {
+                if ($c['type'] === $type && !$c['played']) {
+                    // Rule Check: Cannot play (bought this turn)
+                    // Exception: VP cards can be played anytime (usually handled passively, but here allowed)
+                    if ($c['bought_turn'] < $state->turnCount || $type === 'vp_point') {
+                        $cardIndex = $index;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($cardIndex === -1) {
+            throw new \Exception("Card not found or cannot be played this turn.");
+        }
+
+        // 2. Mark as Played
+        $player['dev_cards'][$cardIndex]['played'] = true;
+
+        // 3. Execute Effect
+        $message = "Played $type";
+        switch ($type) {
+            case 'knight':
+                // TODO: Trigger Robber mode
+                // For now, just a message
+                $message = "Knight played! (Robber implementation pending)";
+                break;
+
+            case 'year_of_plenty':
+                // Payload: ['resources' => ['wood', 'brick']]
+                $resources = $payload['resources'] ?? [];
+                if (count($resources) !== 2) throw new \Exception("Must choose exactly 2 resources.");
+                foreach ($resources as $res) {
+                    $player["resource_$res"] = ($player["resource_$res"] ?? 0) + 1;
+                }
+                $message = "Taken 2 resources: " . implode(', ', $resources);
+                break;
+
+            case 'monopoly':
+                // Payload: ['resource' => 'sheep']
+                $targetRes = $payload['resource'] ?? null;
+                if (!$targetRes) throw new \Exception("Must choose a resource type.");
+
+                $totalStolen = 0;
+                foreach ($state->players as $pIndex => &$otherPlayer) {
+                    if ($pIndex === $playerIndex) continue;
+                    $amount = $otherPlayer["resource_$targetRes"] ?? 0;
+                    if ($amount > 0) {
+                        $otherPlayer["resource_$targetRes"] = 0;
+                        $totalStolen += $amount;
+                        // Save other player immediately
+                        $state->savePlayer($pIndex);
+                    }
+                }
+                $player["resource_$targetRes"] = ($player["resource_$targetRes"] ?? 0) + $totalStolen;
+                $message = "Monopoly! Stole $totalStolen $targetRes.";
+                break;
+
+            case 'road_building':
+                // TODO: trigger free road build
+                $message = "Road Building played! (Free roads implementation pending)";
+                break;
+
+            case 'vp_point':
+                $message = "Victory Point revealed!";
+                break;
+        }
+
+        // 4. Save
+        $state->savePlayer($playerIndex);
+
+        return ['message' => $message];
+    }
+
     public static function checkWinCondition(GameState $state)
     {
         // Victory Point Goal

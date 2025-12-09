@@ -9,9 +9,10 @@ interface Props {
     gameState?: GameState | null;
     onTradeClick: () => void;
     onBuyDevCard: () => void;
+    onOpenDevCards: () => void;
 }
 
-export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuildMode, loading, onTradeClick, onBuyDevCard, gameState }: Props) => {
+export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuildMode, loading, onTradeClick, onBuyDevCard, onOpenDevCards, gameState }: Props) => {
     const isRollPhase = gameState?.turnPhase === 'roll';
     const isMainPhase = gameState?.turnPhase === 'main';
     
@@ -101,9 +102,16 @@ export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuil
                         : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-300'
                     }`}
                  >
-                     <span>🃏</span> Dev Card
+                     <span>💰</span> Buy Card
                  </button>
              </div>
+
+             <button 
+                onClick={onOpenDevCards}
+                className="w-full mb-3 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg transition border border-indigo-200 flex items-center justify-center gap-2"
+             >
+                 <span>🃏</span> My Cards
+             </button>
 
             <button 
                 onClick={onEndTurn}

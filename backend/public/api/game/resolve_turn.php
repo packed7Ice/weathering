@@ -115,6 +115,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => $e->getMessage()]);
             exit;
         }
+    } elseif ($action === 'play_dev_card') {
+        $payload = $input['payload'] ?? []; // Input mapping fix: input is flat in resolve_turn loop? No.
+        // Input structure: { gameId, action, cardType, ...payload }?
+        // Wait, App.tsx: resolveAction('play_dev_card', { cardType, ...payload })
+        // So $input has 'cardType' and payload keys directly.
+
+        $type = $input['cardType'] ?? null;
+        try {
+            $result = Rules::playDevCard($state, $state->activePlayerIndex, $type, $input);
+            $response['message'] = $result['message'];
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
+        }
     } elseif ($action === 'end_turn') {
         // Basic turn rotation
         $state->activePlayerIndex = ($state->activePlayerIndex + 1) % count($state->players);

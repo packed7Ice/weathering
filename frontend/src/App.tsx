@@ -4,6 +4,7 @@ import { WeatherBanner } from './components/UI/WeatherBanner';
 import { PlayerPanel } from './components/UI/PlayerPanel';
 import { ActionPanel } from './components/UI/ActionPanel';
 import { TradeModal } from './components/UI/TradeModal';
+import { DevCardModal } from './components/UI/DevCardModal';
 import { DiceDisplay } from './components/UI/DiceDisplay';
 import { useGameState } from './hooks/useGameState';
 import { useApiClient } from './hooks/useApiClient';
@@ -11,6 +12,7 @@ import { useApiClient } from './hooks/useApiClient';
 function App() {
     const [winner, setWinner] = useState<{name: string, score: number} | null>(null);
     const [showTradeModal, setShowTradeModal] = useState(false);
+    const [showDevCardModal, setShowDevCardModal] = useState(false);
 
     const [gameId, setGameId] = useState<string | null>(() => {
         const params = new URLSearchParams(window.location.search);
@@ -48,6 +50,17 @@ function App() {
             alert("Failed to buy card: " + response.error);
         } else if (response?.message) {
             alert("Bought Card: " + (response.card || 'Secret Card')); 
+        }
+    };
+
+    const handlePlayDevCard = async (cardType: string, payload?: Record<string, unknown>) => {
+        const res = await resolveAction('play_dev_card', { cardType, ...payload });
+        const response = res as { message?: string, error?: string } | null;
+
+        if (response?.error) {
+            alert("Failed to play card: " + response.error);
+        } else if (response?.message) {
+            alert(response.message);
         }
     };
 
@@ -190,27 +203,41 @@ function App() {
                         gameState={gameState}
                         onTradeClick={() => setShowTradeModal(true)}
                         onBuyDevCard={handleBuyDevCard}
+                        onOpenDevCards={() => setShowDevCardModal(true)}
                     />
                     
                     {/* Debug Info */}
                     <div className="bg-black/80 text-green-400 p-4 rounded-lg font-mono text-xs overflow-auto max-h-48 shadow-inner">
                         <div className="font-bold text-white mb-1">Turn: {gameState?.turnCount}</div>
-                        <div>Active Player: {gameState?.activePlayerIndex}</div>
-                        <div>Season: {gameState?.season}</div>
+                        <div>Phase: {gameState?.turnPhase}</div>
+                        <div>Winner: {gameState?.activePlayerIndex ?? '?'}</div>
                     </div>
                 </div>
             </div>
+
+            {/* Trade Modal */}
+            {gameState && (
+                <TradeModal 
+                    isOpen={showTradeModal}
+                    onClose={() => setShowTradeModal(false)}
+                    gameState={gameState}
+                    activePlayerId={gameState.players[gameState.activePlayerIndex]?.id}
+                    onTrade={handleTrade}
+                />
+            )}
+
+            {/* Dev Card Modal */}
+            {gameState && (
+                <DevCardModal 
+                    isOpen={showDevCardModal}
+                    onClose={() => setShowDevCardModal(false)}
+                    gameState={gameState}
+                    activePlayerId={gameState.players[gameState.activePlayerIndex]?.id}
+                    onPlayCard={handlePlayDevCard}
+                />
+            )}
         </main>
-        
-        {gameState && (
-            <TradeModal 
-                isOpen={showTradeModal}
-                onClose={() => setShowTradeModal(false)}
-                onTrade={handleTrade}
-                gameState={gameState}
-                activePlayerId={gameState.players[gameState.activePlayerIndex]?.id}
-            />
-        )}
+
     </div>
   );
 }
