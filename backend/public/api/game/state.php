@@ -40,6 +40,8 @@ echo json_encode([
         'gameId' => $state->gameId,
         'turnCount' => $state->turnCount,
         'season' => $state->season,
+        'activePlayerIndex' => $state->activePlayerIndex,
+        'turnPhase' => $state->turnPhase,
         'players' => $state->players,
         'board' => $state->board,
         'constructions' => $state->constructions

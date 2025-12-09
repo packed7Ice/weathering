@@ -140,5 +140,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $response['message'] = "Game Over! Winner: " . $winCheck['winner']['name'];
     }
 
-    echo json_encode(['status' => 'ok', 'newState' => $state, 'actionResponse' => $response]);
+    echo json_encode(['status' => 'ok', 'gameState' => $state, 'actionResponse' => $response]);
 }

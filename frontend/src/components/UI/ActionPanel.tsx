@@ -14,7 +14,6 @@ interface Props {
 export const ActionPanel = ({ onEndTurn, onRollDice, onSetBuildMode, currentBuildMode, loading, onTradeClick, onBuyDevCard, gameState }: Props) => {
     const isRollPhase = gameState?.turnPhase === 'roll';
     const isMainPhase = gameState?.turnPhase === 'main';
-    const isMyTurn = gameState && gameState.activePlayerIndex >= 0; // Simplified
     
     // Check if it's actually the user's turn (implicitly handled by single player flow here, but good for UI state)
     

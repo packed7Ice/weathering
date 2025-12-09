@@ -4,6 +4,7 @@ import { WeatherBanner } from './components/UI/WeatherBanner';
 import { PlayerPanel } from './components/UI/PlayerPanel';
 import { ActionPanel } from './components/UI/ActionPanel';
 import { TradeModal } from './components/UI/TradeModal';
+import { DiceDisplay } from './components/UI/DiceDisplay';
 import { useGameState } from './hooks/useGameState';
 import { useApiClient } from './hooks/useApiClient';
 
@@ -50,13 +51,29 @@ function App() {
         }
     };
 
-  const handleRollDice = async () => {
-       const res = await resolveAction('roll_dice') as { message?: string, game_over?: boolean, winner?: { name: string, score: number } } | null;
+    const [lastDice, setLastDice] = useState<number | null>(null);
+    const [isRolling, setIsRolling] = useState(false);
+
+    const handleRollDice = async () => {
+       setIsRolling(true);
+       setLastDice(null); // Reset for animation
+
+       // Fake delay for animation
+       await new Promise(resolve => setTimeout(resolve, 1000));
+
+       const res = await resolveAction('roll_dice') as { message?: string; dice?: number; game_over?: boolean; winner?: { name: string; score: number } } | null;
+       
+       setIsRolling(false);
+       
+       if (res?.dice) {
+           setLastDice(res.dice);
+       }
+       
        checkVictory(res);
        if (res && res.message) {
            console.log(res.message); 
        }
-  };
+    };
 
   const handleBuild = async (type: 'road' | 'settlement' | 'city', locationId: string) => {
       if (!buildMode) return;
@@ -104,7 +121,7 @@ function App() {
       );
   }
 
-  return (
+    return (
     <div className="min-h-screen bg-slate-100 font-sans text-gray-800">
         {/* Victory Modal */}
         {winner && (
@@ -141,7 +158,8 @@ function App() {
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left: Board */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 relative">
+                    <DiceDisplay value={lastDice} rolling={isRolling} />
                     {gameState ? (
                         <Board 
                             tiles={gameState.board} 
