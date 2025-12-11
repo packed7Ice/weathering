@@ -27,3 +27,6 @@ backend/vendor/
 *.njsproj
 *.sln
 *.sw?
+backend/ai_debug.txt
+.gitignore
+ai_debug.txt

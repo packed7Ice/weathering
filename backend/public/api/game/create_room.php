@@ -13,7 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Initialize standard resources and layout
     Rules::generateBoard($game->gameId);
 
-    // 3. Return ID
+    // 3. Create Default Players
+    $db = \Infra\Db::pdo();
+    $stmtP = $db->prepare("INSERT INTO players (game_id, color, name, score, resource_wood, resource_brick, resource_sheep, resource_wheat, resource_ore, dev_cards) VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, '[]')");
+
+    $colors = ['red', 'blue', 'green', 'orange'];
+    foreach ($colors as $i => $color) {
+        $stmtP->execute([$game->gameId, $color, "Player " . ($i + 1)]);
+    }
+
+    // 4. Return ID
     header('Content-Type: application/json');
     echo json_encode([
         'gameId' => $game->gameId,

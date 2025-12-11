@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { ResourceType, GameState } from '../../types/game';
 
+type TradeResource = Exclude<ResourceType, 'desert'>;
+
 interface TradeModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -10,18 +12,18 @@ interface TradeModalProps {
 }
 
 export const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onTrade, gameState, activePlayerId }) => {
-    const [offer, setOffer] = useState<ResourceType>('wood');
-    const [want, setWant] = useState<ResourceType>('brick');
+    const [offer, setOffer] = useState<TradeResource>('wood');
+    const [want, setWant] = useState<TradeResource>('brick');
 
     if (!isOpen) return null;
 
-    const resources: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
+    const resources: TradeResource[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
 
     // Get current player resources
     const player = gameState.players.find(p => p.id === activePlayerId);
     if (!player) return null;
 
-    const canAfford = (res: ResourceType) => {
+    const canAfford = (res: TradeResource) => {
         const count = player[`resource_${res}`] || 0;
         return count >= 4;
     };
@@ -42,7 +44,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onTrade
                         <label className="text-sm font-bold text-slate-500 uppercase tracking-wide">Give 4</label>
                         <select 
                             value={offer} 
-                            onChange={(e) => setOffer(e.target.value as ResourceType)}
+                            onChange={(e) => setOffer(e.target.value as TradeResource)}
                             className="p-3 border rounded-lg bg-slate-50 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                         >
                             {resources.map(r => (
@@ -64,7 +66,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({ isOpen, onClose, onTrade
                         <label className="text-sm font-bold text-slate-500 uppercase tracking-wide">Get 1</label>
                         <select 
                             value={want} 
-                            onChange={(e) => setWant(e.target.value as ResourceType)}
+                            onChange={(e) => setWant(e.target.value as TradeResource)}
                             className="p-3 border rounded-lg bg-slate-50 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                         >
                             {resources.map(r => (

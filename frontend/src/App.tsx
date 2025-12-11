@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Board } from './components/Board/Board';
+// ... imports
 import { WeatherBanner } from './components/UI/WeatherBanner';
 import { PlayerPanel } from './components/UI/PlayerPanel';
 import { ActionPanel } from './components/UI/ActionPanel';
@@ -22,7 +23,7 @@ function App() {
     const [buildMode, setBuildMode] = useState<'road' | 'settlement' | 'city' | null>(null);
   
     // Hooks MUST be called unconditionally
-    const { gameState, weather, loading, resolveTurn, resolveAction } = useGameState(gameId);
+    const { gameState, weather, loading, resolveTurn, resolveAction, updateGameState } = useGameState(gameId);
     const api = useApiClient();
 
     const checkVictory = (res: { game_over?: boolean, winner?: { name: string, score: number } } | null | undefined) => {
@@ -112,6 +113,44 @@ function App() {
 
 
 
+  /* AI Turn Logic */
+  const [aiProcessing, setAiProcessing] = useState(false);
+
+  useEffect(() => {
+      if (!gameState || !gameId) return;
+
+      // If Active Player is CPU (Index > 0)
+      if (gameState.activePlayerIndex !== 0 && !winner && !aiProcessing) { 
+          const runAi = async () => {
+              setAiProcessing(true);
+              // Small delay for UX
+              await new Promise(r => setTimeout(r, 1000));
+              
+              try {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const res = await api.post<{ gameState: any, aiAction: any }>('/game/ai_turn.php', { gameId });
+                  if (res) {
+                      if (res.gameState) {
+                           updateGameState(res.gameState);
+                      }
+                      if (res.aiAction) {
+                          console.log("AI Action:", res.aiAction);
+                          // Force update handled by polling or next interact
+                          // Ideally we'd trigger a reload here
+                          // Hack: window.dispatchEvent(new Event('gameUpdated'));
+                          // Or rely on Polling in useGameState (if implemented)
+                      }
+                  }
+              } catch (e) {
+                  console.error(e);
+              }
+              setAiProcessing(false);
+          };
+          runAi();
+      }
+  }, [gameState, gameId, aiProcessing, api, winner, updateGameState]); 
+
+  // --- Start Screen ---
   if (!gameId) {
       return (
           <div className="min-h-screen bg-sky-100 flex items-center justify-center">
@@ -136,74 +175,81 @@ function App() {
       );
   }
 
-    return (
-    <div className="min-h-screen bg-slate-100 font-sans text-gray-800">
+  // --- Main Game Screen ---
+  return (
+    <div className="min-h-screen bg-slate-100 font-sans text-gray-800 relative">
         {/* Victory Modal */}
         {winner && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-300">
-                <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border-4 border-yellow-400 transform scale-100">
-                    <div className="text-6xl mb-4">🏆</div>
-                    <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-2">
-                        VICTORY!
-                    </h2>
-                    <p className="text-xl text-gray-600 mb-6">
-                        <span className="font-bold text-gray-800">{winner.name}</span> has won the game!
-                    </p>
-                    <div className="bg-yellow-50 rounded-lg p-4 mb-6">
-                        <span className="text-sm text-gray-500 uppercase tracking-wide font-bold">Total Score</span>
-                        <div className="text-5xl font-black text-yellow-500">{winner.score} VP</div>
-                    </div>
+            <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white p-12 rounded-3xl shadow-2xl text-center transform scale-125">
+                    <h2 className="text-6xl font-black text-yellow-500 mb-4 drop-shadow-md">VICTORY!</h2>
+                    <p className="text-3xl font-bold text-gray-800 mb-8">{winner.name} Wins!</p>
+                    <div className="text-6xl mb-8">🏆</div>
                     <button 
-                        onClick={() => window.location.href = '/'}
-                        className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg transition transform hover:scale-105"
+                        onClick={() => window.location.reload()}
+                        className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full text-xl shadow-lg transition-all hover:scale-110 active:scale-95"
                     >
-                        Return to Lobby
+                        Play Again
                     </button>
                 </div>
             </div>
         )}
+        
+        {/* CPU Wait Overlay */}
+        {gameState && gameState.activePlayerIndex !== 0 && !winner && (
+            <div className="fixed inset-0 z-50 bg-black/20 flex items-center justify-center pointer-events-none">
+                 <div className="bg-white/90 p-4 rounded-full shadow-xl animate-pulse font-bold text-blue-600 text-lg flex items-center gap-3">
+                     <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></span>
+                     CPU {gameState.activePlayerIndex + 1} Thinking...
+                 </div>
+            </div>
+        )}
 
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-50 relative">
-            <h1 className="text-xl font-black text-[#2a7fa8] tracking-tight">WEATHER CATAN</h1>
-            <div className="text-sm font-mono text-gray-400">Game ID: {gameId}</div>
+        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-50 sticky top-0">
+            <h1 className="text-xl md:text-2xl font-black text-[#2a7fa8] tracking-tight">WEATHER CATAN</h1>
+            <div className="flex gap-2 md:gap-4 items-center">
+                <div className="text-xs md:text-sm font-bold bg-slate-200 px-3 py-1 rounded-full text-slate-600">
+                    Turn: {gameState ? gameState.turnCount : 0} | Phase: <span className="uppercase text-blue-600">{gameState ? gameState.turnPhase.replace('_', ' ') : '-'}</span>
+                </div>
+            </div>
         </header>
 
-        <main className="max-w-6xl mx-auto p-4 md:p-8">
-            {api.error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <strong className="font-bold">Error: </strong>
-                    <span className="block sm:inline">{api.error}</span>
-                    <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => window.location.reload()}>
-                        <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
-                    </span>
-                </div>
-            )}
+        <main className="max-w-6xl mx-auto p-2 md:p-8">
             <WeatherBanner weather={weather} />
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                 {/* Left: Board */}
                 <div className="lg:col-span-2 relative">
+                    {/* Dice Display */}
                     <DiceDisplay value={lastDice} rolling={isRolling} />
+                    
                     {gameState ? (
-                        <Board 
-                            tiles={gameState.board} 
-                            weatherBuffs={weather ? weather.buffs : null} 
-                            buildMode={buildMode}
-                            onBuild={handleBuild}
-                            constructions={gameState.constructions}
-                        />
+                        <div className="bg-white/50 rounded-2xl md:rounded-3xl shadow-inner border border-white/50 relative overflow-hidden backdrop-blur-sm p-2 md:p-4 h-[400px] md:h-[500px] flex items-center justify-center">
+                            <div className="w-full h-full flex items-center justify-center">
+                                <Board 
+                                    tiles={gameState.board} 
+                                    weatherBuffs={weather ? weather.buffs : null} 
+                                    buildMode={buildMode}
+                                    onBuild={handleBuild}
+                                    constructions={gameState.constructions}
+                                    players={gameState.players}
+                                />
+                            </div>
+                        </div>
                     ) : (
-                        <div className="h-[600px] bg-gray-200 rounded-xl flex items-center justify-center animate-pulse">
+                        <div className="h-[400px] md:h-[500px] bg-gray-200 rounded-xl flex items-center justify-center animate-pulse">
                             Loading Game State...
                         </div>
                     )}
                 </div>
 
                 {/* Right: Controls & Players */}
-                <div className="space-y-6">
-                    {gameState && gameState.players.map((p, i) => (
-                         <PlayerPanel key={p.id} gameState={gameState} playerIndex={i} />
-                    ))}
+                <div className="space-y-4 md:space-y-6">
+                    <div className="overflow-y-auto max-h-[300px] pr-2 space-y-3">
+                        {gameState && gameState.players.map((p, i) => (
+                             <PlayerPanel key={p.id} gameState={gameState} playerIndex={i} />
+                        ))}
+                    </div>
                     
                     <ActionPanel 
                         onEndTurn={resolveTurn} 
@@ -232,7 +278,7 @@ function App() {
                     isOpen={showTradeModal}
                     onClose={() => setShowTradeModal(false)}
                     gameState={gameState}
-                    activePlayerId={gameState.players[gameState.activePlayerIndex]?.id}
+                    activePlayerId={gameState.players[0].id} // Always Me (Player 0)
                     onTrade={handleTrade}
                 />
             )}
@@ -243,12 +289,11 @@ function App() {
                     isOpen={showDevCardModal}
                     onClose={() => setShowDevCardModal(false)}
                     gameState={gameState}
-                    activePlayerId={gameState.players[gameState.activePlayerIndex]?.id}
+                    activePlayerId={gameState.players[0].id} // Always Me (Player 0)
                     onPlayCard={handlePlayDevCard}
                 />
             )}
         </main>
-
     </div>
   );
 }

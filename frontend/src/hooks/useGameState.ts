@@ -49,5 +49,9 @@ export function useGameState(gameId: string | null) {
         }
     }, [gameId, refreshState]);
 
-    return { gameState, weather, loading, resolveTurn, resolveAction, refreshState };
+    const updateGameState = useCallback((newState: GameState) => {
+        setGameState(newState);
+    }, []);
+
+    return { gameState, weather, loading, resolveTurn, resolveAction, refreshState, updateGameState };
 }

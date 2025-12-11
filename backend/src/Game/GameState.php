@@ -66,6 +66,17 @@ class GameState
         $stmtP->execute([$gameId]);
         $instance->players = $stmtP->fetchAll(PDO::FETCH_ASSOC);
 
+        // Decode JSON fields and cast numbers for Players
+        foreach ($instance->players as &$p) {
+            $p['dev_cards'] = json_decode($p['dev_cards'] ?? '[]', true);
+            $p['score'] = intval($p['score']);
+            $p['resource_wood'] = intval($p['resource_wood']);
+            $p['resource_brick'] = intval($p['resource_brick']);
+            $p['resource_sheep'] = intval($p['resource_sheep']);
+            $p['resource_wheat'] = intval($p['resource_wheat']);
+            $p['resource_ore'] = intval($p['resource_ore']);
+        }
+
         // Load Tiles
         $stmtT = $db->prepare("SELECT * FROM tiles WHERE game_id = ?");
         $stmtT->execute([$gameId]);
