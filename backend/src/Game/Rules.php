@@ -74,10 +74,49 @@ class Rules
         if ($state->turnPhase !== 'roll') {
             throw new \Exception("Already rolled this turn.");
         }
-        $state->turnPhase = 'main';
-        $state->save();
 
-        return rand(1, 6) + rand(1, 6);
+        $diceRoll = rand(1, 6) + rand(1, 6);
+
+        // 7が出た場合の特別処理
+        if ($diceRoll === 7) {
+            // 手札が7枚以上のプレイヤーは半分を捨てる（自動処理）
+            foreach ($state->players as $index => &$player) {
+                $totalCards = ($player['resource_wood'] ?? 0) +
+                    ($player['resource_brick'] ?? 0) +
+                    ($player['resource_sheep'] ?? 0) +
+                    ($player['resource_wheat'] ?? 0) +
+                    ($player['resource_ore'] ?? 0);
+
+                if ($totalCards > 7) {
+                    $toDiscard = intval($totalCards / 2);
+                    $discarded = 0;
+
+                    // 各資源からランダムに捨てる
+                    $resources = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
+                    shuffle($resources);
+
+                    while ($discarded < $toDiscard) {
+                        foreach ($resources as $res) {
+                            if ($discarded >= $toDiscard) break;
+                            if ($player["resource_$res"] > 0) {
+                                $player["resource_$res"]--;
+                                $discarded++;
+                            }
+                        }
+                    }
+                    $state->savePlayer($index);
+                }
+            }
+
+            // 盗賊移動フェーズへ（今回はAIは盗賊を砂漠に移動）
+            // 簡略化: 盗賊の移動はスキップしてmainフェーズへ
+            $state->turnPhase = 'main';
+        } else {
+            $state->turnPhase = 'main';
+        }
+
+        $state->save();
+        return $diceRoll;
     }
 
     public static function canBuild(GameState $state, $playerIndex, $type, $locationId)
@@ -709,9 +748,10 @@ class Rules
         $message = "Played $type";
         switch ($type) {
             case 'knight':
-                // TODO: Trigger Robber mode
-                // For now, just a message
-                $message = "Knight played! (Robber implementation pending)";
+                // 騎士使用数をインクリメント（最大騎士力の計算用）
+                $player['knights_played'] = ($player['knights_played'] ?? 0) + 1;
+                // 盗賊移動（簡略化: メッセージのみ）
+                $message = "Knight played! Knights used: " . $player['knights_played'];
                 break;
 
             case 'year_of_plenty':
@@ -745,12 +785,43 @@ class Rules
                 break;
 
             case 'road_building':
-                // TODO: trigger free road build
-                $message = "Road Building played! (Free roads implementation pending)";
+                // プレイヤーに無料道路2本を付与（リソースなしで建設可能）
+                // Payload: ['roads' => ['q_r_e_i', 'q_r_e_j']] - 2本の道路位置
+                $roads = $payload['roads'] ?? [];
+                if (count($roads) !== 2) {
+                    throw new \Exception("Must specify exactly 2 road locations.");
+                }
+
+                // 各道路を無料で建設（コストチェックをスキップ）
+                foreach ($roads as $roadLocation) {
+                    // 接続性と空きのみチェック
+                    $normId = self::normalizeEdgeId($roadLocation);
+                    if (!$normId) throw new \Exception("Invalid road location: $roadLocation");
+
+                    // 占有チェック
+                    $occupied = false;
+                    foreach ($state->constructions as $c) {
+                        if ($c['type'] === 'road' && self::normalizeEdgeId($c['location_id']) === $normId) {
+                            $occupied = true;
+                            break;
+                        }
+                    }
+                    if ($occupied) throw new \Exception("Road location already occupied: $roadLocation");
+
+                    // 接続性チェック
+                    if (!self::checkRoadConnectivity($state, $player['id'], $normId)) {
+                        throw new \Exception("Road must connect to your network: $roadLocation");
+                    }
+
+                    // 建設（コストなし）
+                    $state->addConstruction('road', $roadLocation, $player['id']);
+                }
+                $message = "Road Building! Built 2 free roads.";
                 break;
 
             case 'vp_point':
-                $message = "Victory Point revealed!";
+                $player['score'] = ($player['score'] ?? 0) + 1;
+                $message = "Victory Point revealed! +1 VP";
                 break;
         }
 
@@ -765,12 +836,25 @@ class Rules
         // Victory Point Goal
         $goal = 10;
 
+        // 最大騎士力をチェック（3枚以上の騎士カードを使用）
+        self::updateLargestArmy($state);
+
+        // 最長交易路をチェック（5本以上の連続道路）
+        self::updateLongestRoad($state);
+
         foreach ($state->players as $player) {
             // Base score from buildings (updated in build())
             $vp = $player['score'];
 
-            // Add other logical VPs here (Longest Road, Largest Army, Development Cards)
-            // For Phase 2, we just rely on the stored 'score'.
+            // Longest Road bonus (+2VP)
+            if ($state->longestRoadHolderId == $player['id']) {
+                $vp += 2;
+            }
+
+            // Largest Army bonus (+2VP)
+            if ($state->largestArmyHolderId == $player['id']) {
+                $vp += 2;
+            }
 
             if ($vp >= $goal) {
                 return [
@@ -785,6 +869,132 @@ class Rules
         }
 
         return ['gameOver' => false];
+    }
+
+    private static function updateLargestArmy(GameState $state)
+    {
+        $minKnights = 3;
+        $maxKnights = 0;
+        $holderId = null;
+
+        foreach ($state->players as $player) {
+            $knights = $player['knights_played'] ?? 0;
+            if ($knights >= $minKnights && $knights > $maxKnights) {
+                $maxKnights = $knights;
+                $holderId = $player['id'];
+            }
+        }
+
+        // 現在の保持者より多い場合のみ更新
+        if ($holderId !== null) {
+            $currentHolder = $state->largestArmyHolderId;
+            if ($currentHolder === null) {
+                $state->largestArmyHolderId = $holderId;
+                $state->save();
+            } else {
+                $currentHolderPlayer = $state->getPlayer($currentHolder);
+                $currentKnights = $currentHolderPlayer ? ($currentHolderPlayer['knights_played'] ?? 0) : 0;
+                if ($maxKnights > $currentKnights) {
+                    $state->largestArmyHolderId = $holderId;
+                    $state->save();
+                }
+            }
+        }
+    }
+
+    private static function updateLongestRoad(GameState $state)
+    {
+        $minLength = 5;
+        $maxLength = 0;
+        $holderId = null;
+
+        // 各プレイヤーの最長道路を計算
+        foreach ($state->players as $player) {
+            $length = self::calculateLongestRoadForPlayer($state, $player['id']);
+            if ($length >= $minLength && $length > $maxLength) {
+                $maxLength = $length;
+                $holderId = $player['id'];
+            }
+        }
+
+        // 現在の保持者より長い場合のみ更新
+        if ($holderId !== null) {
+            $currentHolder = $state->longestRoadHolderId;
+            if ($currentHolder === null) {
+                $state->longestRoadHolderId = $holderId;
+                $state->save();
+            } else {
+                $currentLength = self::calculateLongestRoadForPlayer($state, $currentHolder);
+                if ($maxLength > $currentLength) {
+                    $state->longestRoadHolderId = $holderId;
+                    $state->save();
+                }
+            }
+        }
+    }
+
+    private static function calculateLongestRoadForPlayer(GameState $state, $playerId)
+    {
+        // プレイヤーの全道路を取得
+        $roads = [];
+        foreach ($state->constructions as $c) {
+            if ($c['type'] === 'road' && $c['player_id'] == $playerId) {
+                $roads[] = self::normalizeEdgeId($c['location_id']);
+            }
+        }
+
+        if (empty($roads)) return 0;
+
+        // DFSで最長経路を探索
+        $maxLength = 0;
+        $visited = [];
+
+        foreach ($roads as $startRoad) {
+            $length = self::dfsRoadLength($state, $playerId, $startRoad, $visited, $roads);
+            $maxLength = max($maxLength, $length);
+        }
+
+        return $maxLength;
+    }
+
+    private static function dfsRoadLength(GameState $state, $playerId, $currentRoad, &$visited, $allRoads)
+    {
+        if (isset($visited[$currentRoad])) return 0;
+
+        $visited[$currentRoad] = true;
+        $maxLength = 1;
+
+        // この道路の両端点を取得
+        $endpoints = self::getEndpointsOfEdge($currentRoad);
+
+        foreach ($endpoints as $vertex) {
+            // この頂点に接続する他の道路を探す
+            $connectedEdges = self::getAttachedEdgesOfVertex($vertex);
+
+            foreach ($connectedEdges as $edge) {
+                if ($edge === $currentRoad) continue;
+                if (!in_array($edge, $allRoads)) continue;
+
+                // 他プレイヤーの建物でブロックされていないかチェック
+                $blocked = false;
+                foreach ($state->constructions as $c) {
+                    if ($c['player_id'] != $playerId && ($c['type'] === 'settlement' || $c['type'] === 'city')) {
+                        if (self::normalizeVertexId($c['location_id']) === $vertex) {
+                            $blocked = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!$blocked) {
+                    $length = 1 + self::dfsRoadLength($state, $playerId, $edge, $visited, $allRoads);
+                    $maxLength = max($maxLength, $length);
+                }
+            }
+        }
+
+        unset($visited[$currentRoad]);
+        return $maxLength;
     }
 
     private static function getCost($type)
@@ -831,9 +1041,12 @@ class Rules
                 for ($i = 0; $i < 6; $i++) {
                     $vertexId = "{$tile['q']}_{$tile['r']}_v_{$i}";
 
-                    // Find construction at this vertex
+                    // Find construction at this vertex (using normalized IDs)
+                    $normalizedVertexId = self::normalizeVertexId($vertexId);
                     foreach ($state->constructions as $c) {
-                        if ($c['location_id'] === $vertexId) {
+                        if ($c['type'] === 'road') continue; // Skip roads for production
+                        $normalizedConstructionId = self::normalizeVertexId($c['location_id']);
+                        if ($normalizedConstructionId === $normalizedVertexId) {
                             $multiplier = ($c['type'] === 'city') ? 2 : 1;
                             $finalAmount = $amount * $multiplier;
 

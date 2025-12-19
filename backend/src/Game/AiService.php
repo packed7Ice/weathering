@@ -119,28 +119,50 @@ class AiService
 
         // 2. Build or Trade
         // Simple AI: Try to build City > Settlement > Road.
-        // Check resources.
+        // AIは複数のアクションを試みることができる
+        $builtSomething = false;
+        $maxActionsPerTurn = 3; // 無限ループ防止
+        $actionCount = 0;
 
-        $actions = ['city', 'settlement', 'road'];
-        foreach ($actions as $type) {
-            // Check cost
-            if (self::canAfford($state, $playerIndex, $type)) {
-                $loc = self::findValidLocation($state, $playerIndex, $type);
-                if ($loc) {
-                    // Build it
-                    Rules::build($state, $playerIndex, $type, $loc);
-                    return ['action' => 'build', 'type' => $type, 'message' => "AI built $type"];
+        while ($actionCount < $maxActionsPerTurn) {
+            $actionCount++;
+            $actionTaken = false;
+
+            $actions = ['city', 'settlement', 'road'];
+            foreach ($actions as $type) {
+                // Check cost
+                if (self::canAfford($state, $playerIndex, $type)) {
+                    $loc = self::findValidLocation($state, $playerIndex, $type);
+                    if ($loc) {
+                        // Build it
+                        Rules::build($state, $playerIndex, $type, $loc);
+                        self::log("AI built $type at $loc");
+                        $builtSomething = true;
+                        $actionTaken = true;
+                        break; // Try next action type
+                    }
                 }
             }
+
+            if (!$actionTaken) break; // No more affordable/valid builds
         }
 
         // 3. End Turn
-        // If we did nothing above, end turn.
-        $state->activePlayerIndex = ($state->activePlayerIndex + 1) % count($state->players);
-        $state->turnCount++;
+        $numPlayers = count($state->players);
+        $nextPlayer = ($state->activePlayerIndex + 1) % $numPlayers;
+
+        // turnCountはプレイヤー0（人間）に戻る場合のみインクリメント
+        if ($nextPlayer === 0) {
+            $state->turnCount++;
+        }
+
+        $state->activePlayerIndex = $nextPlayer;
         $state->turnPhase = 'roll';
         $state->save();
 
+        if ($builtSomething) {
+            return ['action' => 'build_and_end', 'message' => 'AI built and ended turn'];
+        }
         return ['action' => 'end_turn', 'message' => 'AI ended turn'];
     }
 

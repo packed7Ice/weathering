@@ -5,8 +5,11 @@ CREATE TABLE IF NOT EXISTS games (
     active_player_index INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     current_season TEXT DEFAULT 'Normal', -- Normal, Rainy, Dry, etc.
-    turn_phase TEXT DEFAULT 'roll', -- roll, main
-    dev_deck TEXT -- JSON encoded deck
+    turn_phase TEXT DEFAULT 'roll', -- roll, main, robber (for moving robber)
+    dev_deck TEXT, -- JSON encoded deck
+    robber_tile TEXT, -- q_r format of tile where robber is located
+    longest_road_holder_id INTEGER, -- player_id of longest road holder
+    largest_army_holder_id INTEGER -- player_id of largest army holder
 );
 
 -- Players table
@@ -22,6 +25,7 @@ CREATE TABLE IF NOT EXISTS players (
     resource_wheat INTEGER DEFAULT 0,
     resource_ore INTEGER DEFAULT 0,
     dev_cards TEXT, -- JSON encoded hand
+    knights_played INTEGER DEFAULT 0, -- number of knight cards used
     FOREIGN KEY(game_id) REFERENCES games(id)
 );
 

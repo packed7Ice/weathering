@@ -5,6 +5,8 @@ interface HexTileProps {
     tile: Tile;
     buffs: WeatherBuff[] | null;
     onClick: () => void;
+    width: number;
+    height: number;
 }
 
 const COLORS: Record<string, string> = {
@@ -16,7 +18,7 @@ const COLORS: Record<string, string> = {
     desert: 'bg-yellow-200'
 };
 
-export const HexTile: React.FC<HexTileProps> = React.memo(({ tile, buffs, onClick }) => {
+export const HexTile: React.FC<HexTileProps> = React.memo(({ tile, buffs, onClick, width, height }) => {
     // Check if any buff targets this tile's resource
     const activeBuff = buffs?.find(b => b.target === tile.resource_type);
     
@@ -25,7 +27,8 @@ export const HexTile: React.FC<HexTileProps> = React.memo(({ tile, buffs, onClic
     
     return (
         <div 
-            className="w-[60px] h-[60px] relative flex items-center justify-center group"
+            className="hex-tile relative flex items-center justify-center group cursor-pointer"
+            style={{ width: `${width}px`, height: `${height}px` }}
             onClick={onClick}
         >
             {/* Hexagon Shape CSS */}

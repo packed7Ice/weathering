@@ -235,7 +235,8 @@ export const ConstructionLayer: React.FC<ConstructionLayerProps> = ({
     return (
         <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
             {/* Enable pointer events only on interactive elements */}
-            <g className="pointer-events-auto">
+            {/* SVG座標をボードの中心（50%, 50%）に合わせる */}
+            <g className="pointer-events-auto" style={{ transform: 'translate(50%, 50%)' }}>
                 {roadElements}
                 {vertexElements}
             </g>

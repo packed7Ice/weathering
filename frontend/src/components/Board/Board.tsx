@@ -119,19 +119,19 @@ export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs, buildMode, on
 
     const renderTiles = useMemo(() => {
         return tiles.map(tile => {
-            // Pointy Top Hexagon Layout
-            // x = width * (q + r/2)
-            // y = height * 3/4 * r
-            const x = HEX_WIDTH * (tile.q + tile.r / 2);
-            const y = HEX_HEIGHT * 0.75 * tile.r;
+            // Pointy Top Hexagon Layout - 座標計算をConstructionLayerと統一
+            // centerX = hexSize * sqrt(3) * (q + r/2)
+            // centerY = hexSize * 1.5 * r
+            const centerX = HEX_RADIUS * Math.sqrt(3) * (tile.q + tile.r / 2);
+            const centerY = HEX_RADIUS * 1.5 * tile.r;
 
             return (
                 <div 
                     key={tile.id} 
                     style={{ 
                         position: 'absolute', 
-                        left: `calc(50% + ${x}px)`, 
-                        top: `calc(50% + ${y}px)`, 
+                        left: `calc(50% + ${centerX}px)`, 
+                        top: `calc(50% + ${centerY}px)`, 
                         width: `${HEX_WIDTH}px`,
                         height: `${HEX_HEIGHT}px`,
                         transform: 'translate(-50%, -50%)' 
@@ -141,11 +141,13 @@ export const Board: React.FC<BoardProps> = ({ tiles, weatherBuffs, buildMode, on
                         tile={tile} 
                         buffs={weatherBuffs} 
                         onClick={() => console.log('Clicked tile', tile)}
+                        width={HEX_WIDTH}
+                        height={HEX_HEIGHT}
                     />
                 </div>
             );
         });
-    }, [tiles, weatherBuffs, HEX_WIDTH, HEX_HEIGHT]);
+    }, [tiles, weatherBuffs, HEX_RADIUS, HEX_WIDTH, HEX_HEIGHT]);
 
     return (
         <div 

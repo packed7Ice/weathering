@@ -14,8 +14,11 @@ class GameState
     public $players = [];
     public $board = []; // Holds tiles
     public $constructions = []; // Holds buildings
-    public $turnPhase = 'roll'; // 'roll', 'main'
+    public $turnPhase = 'roll'; // 'roll', 'main', 'robber'
     public $devDeck = []; // Array of card types
+    public $robberTile = null; // "q_r" format of robber location
+    public $longestRoadHolderId = null;
+    public $largestArmyHolderId = null;
 
     public function __construct($gameId)
     {
@@ -60,6 +63,9 @@ class GameState
         $instance->season = $row['current_season'];
         $instance->turnPhase = $row['turn_phase'] ?? 'setup_1';
         $instance->devDeck = json_decode($row['dev_deck'] ?? '[]', true);
+        $instance->robberTile = $row['robber_tile'] ?? null;
+        $instance->longestRoadHolderId = $row['longest_road_holder_id'] ?? null;
+        $instance->largestArmyHolderId = $row['largest_army_holder_id'] ?? null;
 
         // Load Players
         $stmtP = $db->prepare("SELECT * FROM players WHERE game_id = ?");
@@ -75,6 +81,7 @@ class GameState
             $p['resource_sheep'] = intval($p['resource_sheep']);
             $p['resource_wheat'] = intval($p['resource_wheat']);
             $p['resource_ore'] = intval($p['resource_ore']);
+            $p['knights_played'] = intval($p['knights_played'] ?? 0);
         }
 
         // Load Tiles
@@ -99,7 +106,8 @@ class GameState
         $stmt = $db->prepare("UPDATE players SET 
             score = ?, 
             resource_wood = ?, resource_brick = ?, resource_sheep = ?, resource_wheat = ?, resource_ore = ?,
-            dev_cards = ?
+            dev_cards = ?,
+            knights_played = ?
             WHERE id = ?");
 
         $stmt->execute([
@@ -110,6 +118,7 @@ class GameState
             $p['resource_wheat'],
             $p['resource_ore'],
             json_encode($p['dev_cards'] ?? []),
+            $p['knights_played'] ?? 0,
             $p['id']
         ]);
     }
@@ -162,7 +171,17 @@ class GameState
     public function save()
     {
         $db = Db::pdo();
-        $stmt = $db->prepare("UPDATE games SET turn_count = ?, active_player_index = ?, current_season = ?, turn_phase = ?, dev_deck = ? WHERE id = ?");
-        $stmt->execute([$this->turnCount, $this->activePlayerIndex, $this->season, $this->turnPhase, json_encode($this->devDeck), $this->gameId]);
+        $stmt = $db->prepare("UPDATE games SET turn_count = ?, active_player_index = ?, current_season = ?, turn_phase = ?, dev_deck = ?, robber_tile = ?, longest_road_holder_id = ?, largest_army_holder_id = ? WHERE id = ?");
+        $stmt->execute([
+            $this->turnCount,
+            $this->activePlayerIndex,
+            $this->season,
+            $this->turnPhase,
+            json_encode($this->devDeck),
+            $this->robberTile,
+            $this->longestRoadHolderId,
+            $this->largestArmyHolderId,
+            $this->gameId
+        ]);
     }
 }
