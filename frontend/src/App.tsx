@@ -123,27 +123,33 @@ function App() {
       if (gameState.activePlayerIndex !== 0 && !winner && !aiProcessing) { 
           const runAi = async () => {
               setAiProcessing(true);
-              // Small delay for UX
-              await new Promise(r => setTimeout(r, 1000));
               
-              try {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const res = await api.post<{ gameState: any, aiAction: any }>('/game/ai_turn.php', { gameId });
-                  if (res) {
-                      if (res.gameState) {
-                           updateGameState(res.gameState);
-                      }
-                      if (res.aiAction) {
+              // CPUのターン中はループで継続
+              let currentState = gameState;
+              const maxIterations = 20; // 無限ループ防止
+              let iterations = 0;
+              
+              while (currentState.activePlayerIndex !== 0 && iterations < maxIterations && !winner) {
+                  iterations++;
+                  // Small delay for UX
+                  await new Promise(r => setTimeout(r, 800));
+                  
+                  try {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const res = await api.post<{ gameState: any, aiAction: any, status: string }>('/game/ai_turn.php', { gameId });
+                      if (res && res.gameState) {
+                          currentState = res.gameState;
+                          updateGameState(res.gameState);
                           console.log("AI Action:", res.aiAction);
-                          // Force update handled by polling or next interact
-                          // Ideally we'd trigger a reload here
-                          // Hack: window.dispatchEvent(new Event('gameUpdated'));
-                          // Or rely on Polling in useGameState (if implemented)
+                      } else {
+                          break; // エラーまたは空のレスポンスの場合は終了
                       }
+                  } catch (e) {
+                      console.error("AI Error:", e);
+                      break;
                   }
-              } catch (e) {
-                  console.error(e);
               }
+              
               setAiProcessing(false);
           };
           runAi();

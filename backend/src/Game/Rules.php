@@ -360,11 +360,19 @@ class Rules
         // Needs connection to (My Settlement/City at pivot) OR (My Road at pivot)
         $endpoints = self::getEndpointsOfEdge($normEdgeId); // returns 2 normalized vertices
 
+        // デバッグログ
+        $debugMsg = "checkRoadConnectivity: edge=$normEdgeId, player=$playerId, endpoints=" . json_encode($endpoints);
+
         foreach ($endpoints as $vId) {
             // Check for Building
             foreach ($state->constructions as $c) {
                 if ($c['player_id'] == $playerId && ($c['type'] == 'settlement' || $c['type'] == 'city')) {
-                    if (self::normalizeVertexId($c['location_id']) === $vId) return true;
+                    $cNorm = self::normalizeVertexId($c['location_id']);
+                    $debugMsg .= " | Checking settlement: loc={$c['location_id']}, norm=$cNorm, vId=$vId";
+                    if ($cNorm === $vId) {
+                        file_put_contents('c:/xampp/htdocs/weathering/backend/logs/road_debug.log', date('Y-m-d H:i:s') . " - $debugMsg - MATCH FOUND!\n", FILE_APPEND);
+                        return true;
+                    }
                 }
             }
             // Check for Road
@@ -373,11 +381,16 @@ class Rules
                 if ($eId === $normEdgeId) continue; // skip self
                 foreach ($state->constructions as $c) {
                     if ($c['player_id'] == $playerId && $c['type'] == 'road') {
-                        if (self::normalizeEdgeId($c['location_id']) === $eId) return true;
+                        if (self::normalizeEdgeId($c['location_id']) === $eId) {
+                            file_put_contents('c:/xampp/htdocs/weathering/backend/logs/road_debug.log', date('Y-m-d H:i:s') . " - $debugMsg - Road connection found!\n", FILE_APPEND);
+                            return true;
+                        }
                     }
                 }
             }
         }
+
+        file_put_contents('c:/xampp/htdocs/weathering/backend/logs/road_debug.log', date('Y-m-d H:i:s') . " - $debugMsg - NO CONNECTION FOUND\n", FILE_APPEND);
         return false;
     }
 
